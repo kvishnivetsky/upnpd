@@ -5,3 +5,5 @@ autom4te.cache/*
 aclocal.m4
 configure
 config.log
+Makefile
+Makefile.in
