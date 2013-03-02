@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config>
+    <network>
+	<!-- Device to bind multicast socket to -->
+	<interface>vlan2</interface>
+    </network>
+    <upnp>
+	<!-- timer between anouncing configured devices -->
+	<timing announce-period="10" />
+	<!-- location URL for root device description XML -->
+	<rootdevice locationURL="http://192.168.1.2:80/DLNA/index.xml" />
+    </upnp>
+</config>

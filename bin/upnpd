@@ -1,0 +1,288 @@
+#!/usr/bin/perl -w
+
+#######################################################################
+#
+# uPnP daemon v.1.0
+# Copyright 2012 Konstantin S. Vishnivetsky
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# For contacts:
+# WEB: http://www.vishnivetsky.ru
+# E-mail: kos@vishnivetsky.ru
+# SkyPE: kvishnivetsky
+# ICQ: 328-468-511
+# Phone: +7 913 774-7588
+#
+#######################################################################
+
+use strict;
+use utf8;
+use File::Basename;
+use XML::Simple;;
+use Time::HiRes;
+use IO::Select;
+use IO::Socket;
+use IO::Socket::Multicast;
+use Data::Dumper;
+
+my $sysname = `uname -sr`;
+chomp $sysname;
+my $VERSION = "$sysname UPnP/1.0 VishnivetskyUPnP/0.5b";
+my $UUID = "e3811500-20f2-1000-9e7d-b407f962cbea";
+my $MCAST_ADDR = "239.255.255.250";
+my $MCAST_PORT = 1900;
+my $MCAST_SOCK_ADDR = sprintf("%s:%d", $MCAST_ADDR, $MCAST_PORT);
+
+my $config = XMLin(
+    $ARGV[0],
+    ForceArray => ['service','device'],
+    KeyAttr => ''
+    );
+
+my $conf_dir = dirname $ARGV[0];
+my @services = split / /,`ls $conf_dir/services.d/*`;
+my @devices = split / /,`ls $conf_dir/devices.d/*`;
+
+for my $service_c(@services) {
+    chomp $service_c;
+    my $tmp = XMLin(
+	$service_c,
+	ForceArray => ['service'],
+	KeyAttr => ''
+	);
+	for my $service(@{$tmp->{'service'}}) {
+	    push(@{$config->{'upnp'}->{'service'}}, $service);
+	}
+	undef $tmp;
+}
+for my $device_c(@devices) {
+    chomp $device_c;
+    my $tmp = XMLin(
+	$device_c,
+	ForceArray => ['device'],
+	KeyAttr => ''
+	);
+	for my $device(@{$tmp->{'device'}}) {
+	    push(@{$config->{'upnp'}->{'device'}}, $device);
+	}
+	undef $tmp;
+}
+
+for my $service(@{$config->{'upnp'}->{'service'}}) {
+	push(@{$config->{'urn'}->{$service->{'urn'}}->{'service'}}, \%{$service});
+}
+for my $device(@{$config->{'upnp'}->{'device'}}) {
+	push(@{$config->{'urn'}->{$device->{'urn'}}->{'device'}}, \%{$device});
+}
+
+my $s_anounce = IO::Socket::Multicast->new(
+    ReuseAddr => 1,
+    Blocking => 0
+    ) || die "ERROR: ".$!;
+
+my $s_listen = IO::Socket::Multicast->new(
+    LocalPort => $MCAST_PORT,
+    ReuseAddr => 1,
+    Blocking => 0
+    ) || die "ERROR: ".$!;
+
+$s_anounce->mcast_loopback(0);
+
+$s_listen->mcast_loopback(0);
+
+# Set ougoing mcast if and addr
+$s_anounce->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
+$s_listen->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
+
+## Set ougoing mcast if and addr
+#$s_listen->mcast_if($config->{'network'}->{'interface'});
+## Set ougoing mcast if and addr
+#$s_listen->mcast_if($config->{'network'}->{'interface'});
+
+my $read_set = IO::Select->new() || die "new select: ".$!;
+$read_set->add($s_listen) || die "add select: ".$!;
+
+$SIG{TERM} = \&onTerminate;
+$SIG{KILL} = \&onTerminate;
+$SIG{ALRM} = \&onAlarm;
+
+my $child = fork();
+die "Unable to fork: $!" if !defined($child);
+
+if ($child == 0) {
+    alarm $config->{'upnp'}->{'timing'}->{'announce-period'};
+
+    my $notify;
+    my $last_anounced = 0;
+
+    while (1) {
+	my ($rh_set) = IO::Select->select($read_set, undef, undef, 10);
+	foreach my $sh (@$rh_set) {
+#	    printf "Reading DATA from socket\n";
+	    my $data;
+	    $sh->recv($data, 4096);
+	    if (defined($data)) {
+		my @lines = split(/\r\n/, $data);
+		my %headers = ();
+		$headers{'status'} = $lines[0];
+		undef $lines[0];
+		foreach my $line(@lines) {
+		    if (defined($line)) {
+			my $v = substr($line, index($line, ':') + 1);
+			$headers{uc(substr($line, 0, index($line, ':')))} = $v;
+		    }
+		}
+		if ($headers{'status'} eq 'HTTP/1.1 200 OK') {
+#		    printf(" ADDING device: %s at %s into DB\n", $headers{'USN'}, $headers{'LOCATION'}) if exists($headers{'LOCATION'}) && exists($headers{'USN'});
+		    (my $uuid, my $urn) = split /\:\:/, $headers{'USN'};
+		    if (!defined($urn)) {
+			(my $namespace, my $id) = split /\:/, $uuid;
+			my $device_file = $config->{'files'}->{'spool'}."/".$id.".xml";
+			my $url = substr($headers{'LOCATION'},1);
+			if (open(my $fh, ">", $device_file)) {
+			    printf $fh "<?xml version=\"1.0\"?>\n<url>%s</url>\n", $url;
+			    close($fh);
+			} else {
+			    warn "Add device: $!\n";
+			}
+		    }
+		}else{
+#		    printf("RCV from %s:%d< %s", $sh->peerhost(), $sh->peerport(), $headers{'status'});
+		    if ($headers{'status'} eq 'M-SEARCH * HTTP/1.1') {
+			(my $scheme, my $urn, my $class, my $type, my $version) = split /\:/, substr($headers{'ST'},1);
+			if (defined($class)) {
+			    for my $found(@{$config->{$scheme}->{$urn}->{$class}}) {
+				if ($found->{'type'} eq $type && $found->{'version'} eq $version) {
+				    my $response = onMSEARCH(substr($headers{'ST'},1), $found->{'locationURL'});
+				    $s_listen->mcast_send($response, $sh->peerhost().":".$sh->peerport()) or die "send: $!";
+				}
+			    }
+			}
+		    }
+		    if ($headers{'status'} eq 'NOTIFY * HTTP/1.1') {
+			(my $uuid, my $urn) = split /\:\:/, $headers{'USN'};
+			(my $namespace, my $id) = split /\:/, $uuid;
+			my $device_file = $config->{'files'}->{'spool'}."/".$id.".xml";
+			if ($headers{'NTS'} eq " ssdp:alive") {
+			    my $url = substr($headers{'LOCATION'}, 0, 1) eq ' '?substr($headers{'LOCATION'}, 1):substr($headers{'LOCATION'}, 1);
+#			    printf(" ADDING device: %s at %s into DB\n", $headers{'USN'}, $headers{'LOCATION'}) if exists($headers{'LOCATION'}) && exists($headers{'USN'});
+			    if (!defined($urn)) {
+				if (open(my $fh, ">", $device_file)) {
+				    printf $fh "<?xml version=\"1.0\"?>\n<url>%s</url>\n", $url;
+				    close($fh);
+				    my $url = substr($headers{'LOCATION'}, 1);
+				} else {
+				    warn "Add device: $!\n";
+				}
+			    }
+			} else {
+#			    printf(" DELETING device: %s from DB\n", $headers{'USN'});
+			}
+		    }
+		}
+	    }
+	}
+    }
+} else {
+	# Write PID-file and exit normaly
+	open(my $fpid, ">", $ARGV[1]) || die "$!(".$ARGV[1].")";
+	printf $fpid "%d\n", $child;
+	close($fpid);
+	exit 0;
+}
+
+# -------------- Subroutines -----------------
+
+sub onMSEARCH {
+    my $ST = shift;
+    my $location = shift;
+
+    my $msg;
+    $msg  = sprintf "HTTP/1.1 200 OK\r\n";
+    $msg .= sprintf "CACHE-CONTROL:max-age=1800\r\n";
+    $msg .= sprintf "LOCATION:%s\r\n", $location;
+    $msg .= sprintf "EXT:\r\n";
+    $msg .= sprintf "SERVER:%s\r\n", $VERSION;
+    $msg .= sprintf "ST:%s\r\n", $ST;
+    $msg .= sprintf "USN:uuid:%s::%s\r\n", $UUID, $ST;
+    $msg .= sprintf "\r\n";
+    return $msg;
+};
+
+sub buildNOTIFY {
+    my $state = shift;
+    my $device = shift;
+    my $location = shift;
+
+    my $notify;
+    $notify  = sprintf "NOTIFY * HTTP/1.1\r\n";
+    $notify .= sprintf "HOST:$MCAST_SOCK_ADDR\r\n";
+    $notify .= sprintf "CACHE-CONTROL:max-age=1800\r\n";
+    $notify .= sprintf "LOCATION:%s\r\n", $location;
+    $notify .= sprintf "NT:%s\r\n", $device if defined $device;
+    $notify .= sprintf "NT:uuid:%s\r\n", $UUID if !defined $device;
+    $notify .= sprintf "NTS:ssdp:%s\r\n", $state;
+    $notify .= sprintf "SERVER:%s\r\n", $VERSION;
+    $notify .= sprintf "USN:uuid:%s::%s\r\n", $UUID, $device if defined $device;
+    $notify .= sprintf "USN:uuid:%s\r\n", $UUID if !defined $device;
+    $notify .= sprintf "CONTENT-LENGTH:0\r\n";
+    $notify .= sprintf "\r\n";
+
+    return $notify;
+};
+
+sub anounceALIVE {
+    anounceSTATE("alive");
+};
+
+sub anounceDEAD {
+    anounceSTATE("byebye");
+};
+
+sub anounceSTATE {
+    my $state = shift;
+    my $notify = "";
+    #Anouncing root device
+    #printf "Anouncing root device\n";
+    $notify = buildNOTIFY($state, "upnp:rootdevice", $config->{'upnp'}->{'rootdevice'}->{'locationURL'});
+    $s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+    $notify = buildNOTIFY($state, undef, $config->{'upnp'}->{'rootdevice'}->{'locationURL'});
+    $s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+
+    #Anouncing embeded devices
+    #printf "Anouncing embeded devices\n";
+    for my $device(@{$config->{'upnp'}->{'device'}}) {
+	$notify = buildNOTIFY($state, "urn:".$device->{'urn'}.":device:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
+	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+    }
+    #Anouncing services
+    #printf "Anouncing services\n";
+    for my $device(@{$config->{'upnp'}->{'service'}}) {
+	$notify = buildNOTIFY($state, "urn:".$device->{'urn'}.":service:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
+	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+    }
+};
+
+# --------------- Signals ------------------
+
+sub onAlarm {
+    anounceALIVE;
+    alarm $config->{'upnp'}->{'timing'}->{'announce-period'};
+};
+
+sub onTerminate {
+    anounceDEAD;
+    exit 0; # Terminate normaly
+};
