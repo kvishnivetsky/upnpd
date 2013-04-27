@@ -7,7 +7,7 @@
     <upnp>
 	<!-- timer between anouncing configured devices -->
 	<timing announce-period="10" />
-	<!-- location URL for root device description XML -->
-	<rootdevice locationURL="http://192.168.1.2:80/DLNA/index.xml" />
+	<!-- location URL for root devices description XML -->
+	<rootdevice locationURL="http://host:port/path/description.xml" UUID="uuid"/>
     </upnp>
 </config>

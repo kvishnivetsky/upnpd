@@ -40,23 +40,23 @@ use Data::Dumper;
 my $sysname = `uname -sr`;
 chomp $sysname;
 my $VERSION = "$sysname UPnP/1.0 VishnivetskyUPnP/0.5b";
-my $UUID = "e3811500-20f2-1000-9e7d-b407f962cbea";
 my $MCAST_ADDR = "239.255.255.250";
 my $MCAST_PORT = 1900;
 my $MCAST_SOCK_ADDR = sprintf("%s:%d", $MCAST_ADDR, $MCAST_PORT);
 
 my $config = XMLin(
     $ARGV[0],
-    ForceArray => ['service','device'],
+    ForceArray => ['service','device','rootdevice'],
     KeyAttr => ''
     );
 
 my $conf_dir = dirname $ARGV[0];
-my @services = split / /,`ls $conf_dir/services.d/*`;
-my @devices = split / /,`ls $conf_dir/devices.d/*`;
+my @services = split /\n/,`ls $conf_dir/services.d/*`;
+my @devices = split /\n/,`ls $conf_dir/devices.d/*`;
 
 for my $service_c(@services) {
     chomp $service_c;
+#    $service_c =~ s/\n//g;
     my $tmp = XMLin(
 	$service_c,
 	ForceArray => ['service'],
@@ -159,13 +159,14 @@ if ($child == 0) {
 			}
 		    }
 		}else{
-#		    printf("RCV from %s:%d< %s", $sh->peerhost(), $sh->peerport(), $headers{'status'});
+#		    printf(STDERR "RCV from %s:%d< %s", $sh->peerhost(), $sh->peerport(), $headers{'status'});
 		    if ($headers{'status'} eq 'M-SEARCH * HTTP/1.1') {
 			(my $scheme, my $urn, my $class, my $type, my $version) = split /\:/, substr($headers{'ST'},1);
 			if (defined($class)) {
 			    for my $found(@{$config->{$scheme}->{$urn}->{$class}}) {
 				if ($found->{'type'} eq $type && $found->{'version'} eq $version) {
-				    my $response = onMSEARCH(substr($headers{'ST'},1), $found->{'locationURL'});
+#				    printf STDERR "UUID=%s[%s]\n", $found->{'UUID'}, $found->{'locationURL'};
+				    my $response = onMSEARCH($found->{'UUID'}, substr($headers{'ST'},1), $found->{'locationURL'});
 				    $s_listen->mcast_send($response, $sh->peerhost().":".$sh->peerport()) or die "send: $!";
 				}
 			    }
@@ -206,6 +207,7 @@ if ($child == 0) {
 # -------------- Subroutines -----------------
 
 sub onMSEARCH {
+    my $UUID = shift;
     my $ST = shift;
     my $location = shift;
 
@@ -222,6 +224,7 @@ sub onMSEARCH {
 };
 
 sub buildNOTIFY {
+    my $UUID = shift;
     my $state = shift;
     my $device = shift;
     my $location = shift;
@@ -254,23 +257,28 @@ sub anounceDEAD {
 sub anounceSTATE {
     my $state = shift;
     my $notify = "";
-    #Anouncing root device
-    #printf "Anouncing root device\n";
-    $notify = buildNOTIFY($state, "upnp:rootdevice", $config->{'upnp'}->{'rootdevice'}->{'locationURL'});
-    $s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
-    $notify = buildNOTIFY($state, undef, $config->{'upnp'}->{'rootdevice'}->{'locationURL'});
-    $s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+    #Anouncing root devices
+#    printf STDERR "Anouncing root devices\n";
+    for my $rootdevice(@{$config->{'upnp'}->{'rootdevice'}}) {
+#	printf STDERR "UUID=%s[%s]\n", $rootdevice->{'UUID'}, $rootdevice->{'locationURL'};
+	$notify = buildNOTIFY($rootdevice->{'UUID'}, $state, undef,$rootdevice->{'locationURL'});
+	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+	$notify = buildNOTIFY($rootdevice->{'UUID'}, $state, undef, $rootdevice->{'locationURL'});
+	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
+    }
 
     #Anouncing embeded devices
-    #printf "Anouncing embeded devices\n";
+#    printf STDERR "Anouncing embeded devices\n";
     for my $device(@{$config->{'upnp'}->{'device'}}) {
-	$notify = buildNOTIFY($state, "urn:".$device->{'urn'}.":device:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
+#	printf STDERR "UUID=%s\n", $device->{'UUID'};
+	$notify = buildNOTIFY($device->{'UUID'}, $state, "urn:".$device->{'urn'}.":device:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
     }
     #Anouncing services
-    #printf "Anouncing services\n";
-    for my $device(@{$config->{'upnp'}->{'service'}}) {
-	$notify = buildNOTIFY($state, "urn:".$device->{'urn'}.":service:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
+#    printf STDERR "Anouncing services\n";
+    for my $service(@{$config->{'upnp'}->{'service'}}) {
+#	printf STDERR "UUID=%s\n", $service->{'UUID'};
+	$notify = buildNOTIFY($service->{'UUID'}, $state, "urn:".$service->{'urn'}.":service:".$service->{'type'}.':'.$service->{'version'}, $service->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
     }
 };

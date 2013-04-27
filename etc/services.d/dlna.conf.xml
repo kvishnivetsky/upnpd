@@ -1,4 +1,4 @@
 <?xml version="1.0"?>
 <services>
-    <service type="ContentDirectory" urn="schemas-upnp-org" version="1" locationURL="http://192.168.1.2:80/DLNA/index.xml" />
+    <service type="ContentDirectory" urn="schemas-upnp-org" version="1" locationURL="http://host:port/path/description.xml" UUID="uuid" />
 </services>

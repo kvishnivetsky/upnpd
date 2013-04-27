@@ -1,4 +1,4 @@
 <?xml version="1.0"?>
 <devices>
-    <device type="MediaServer" urn="schemas-upnp-org" version="1" locationURL="http://192.168.1.2:80/DLNA/index.xml" />
+    <device type="MediaServer" urn="schemas-upnp-org" version="1" locationURL="http://host:port/path/description.xml" UUID="uuid" />
 </devices>
