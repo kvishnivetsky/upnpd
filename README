@@ -1,6 +1,9 @@
 Simple UPnP daemon
 ===================
 
+Configured with XML files, Simple UPnP daemon may announce list of devices.
+The least feature added: multiple root device announce,  usecase is: announce external DLNA devices to your local network.
+
 Contact info:
 
 URL: www.vishnivetsky.ru
