@@ -1,5 +1,9 @@
 <?xml version="1.0"?>
 <config>
+    <!--// We use system logger //-->
+    <syslog>
+	<facility>user</facility>
+    </syslog>
     <network>
 	<!-- Device to bind multicast socket to -->
 	<interface>vlan2</interface>

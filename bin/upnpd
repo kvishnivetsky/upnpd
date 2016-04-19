@@ -29,6 +29,7 @@
 
 use strict;
 use utf8;
+use Logger::Syslog;
 use File::Basename;
 use XML::Simple;;
 use Time::HiRes;
@@ -45,48 +46,12 @@ my $MCAST_ADDR = '239.255.255.250';
 my $MCAST_PORT = 1900;
 my $MCAST_SOCK_ADDR = sprintf("%s:%d", $MCAST_ADDR, $MCAST_PORT);
 
-my $config = XMLin(
-    $ARGV[0],
-    ForceArray => ['service','device','rootdevice'],
-    KeyAttr => ''
-    );
 
 my $conf_dir = dirname $ARGV[0];
 my @services = split /\n/,`ls $conf_dir/services.d/*`;
 my @devices = split /\n/,`ls $conf_dir/devices.d/*`;
-
-for my $service_c(@services) {
-    chomp $service_c;
-#    $service_c =~ s/\n//g;
-    my $tmp = XMLin(
-	$service_c,
-	ForceArray => ['service'],
-	KeyAttr => ''
-	);
-	for my $service(@{$tmp->{'service'}}) {
-	    push(@{$config->{'upnp'}->{'service'}}, $service);
-	}
-	undef $tmp;
-}
-for my $device_c(@devices) {
-    chomp $device_c;
-    my $tmp = XMLin(
-	$device_c,
-	ForceArray => ['device'],
-	KeyAttr => ''
-	);
-	for my $device(@{$tmp->{'device'}}) {
-	    push(@{$config->{'upnp'}->{'device'}}, $device);
-	}
-	undef $tmp;
-}
-
-for my $service(@{$config->{'upnp'}->{'service'}}) {
-	push(@{$config->{'urn'}->{$service->{'urn'}}->{'service'}}, \%{$service});
-}
-for my $device(@{$config->{'upnp'}->{'device'}}) {
-	push(@{$config->{'urn'}->{$device->{'urn'}}->{'device'}}, \%{$device});
-}
+my $config = undef;
+configParse();
 
 my $s_anounce = IO::Socket::Multicast->new(
     ReuseAddr => 1,
@@ -107,17 +72,13 @@ $s_listen->mcast_loopback(0);
 $s_anounce->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
 $s_listen->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
 
-## Set ougoing mcast if and addr
-#$s_listen->mcast_if($config->{'network'}->{'interface'});
-## Set ougoing mcast if and addr
-#$s_listen->mcast_if($config->{'network'}->{'interface'});
-
 my $read_set = IO::Select->new() || die "new select: ".$!;
 $read_set->add($s_listen) || die "add select: ".$!;
 
 $SIG{TERM} = \&onTerminate;
 $SIG{KILL} = \&onTerminate;
 $SIG{ALRM} = \&onAlarm;
+$SIG{HUP} = \&onHUP;
 
 my $child = fork();
 die "Unable to fork: $!" if !defined($child);
@@ -284,6 +245,57 @@ sub anounceSTATE {
     }
 };
 
+sub configParse {
+    $config = XMLin(
+	$ARGV[0],
+	ForceArray => ['service','device','rootdevice'],
+	KeyAttr => ''
+    );
+
+    for my $service_c(@services) {
+	chomp $service_c;
+#	$service_c =~ s/\n//g;
+	my $tmp = XMLin(
+	    $service_c,
+	    ForceArray => ['service'],
+	    KeyAttr => ''
+	);
+	for my $service(@{$tmp->{'service'}}) {
+	    push(@{$config->{'upnp'}->{'service'}}, $service);
+	}
+	undef $tmp;
+    }
+    for my $device_c(@devices) {
+	chomp $device_c;
+	my $tmp = XMLin(
+	    $device_c,
+	    ForceArray => ['device'],
+	    KeyAttr => ''
+	);
+	for my $device(@{$tmp->{'device'}}) {
+	    push(@{$config->{'upnp'}->{'device'}}, $device);
+	}
+	undef $tmp;
+    }
+
+    for my $service(@{$config->{'upnp'}->{'service'}}) {
+	push(@{$config->{'urn'}->{$service->{'urn'}}->{'service'}}, \%{$service});
+    }
+    for my $device(@{$config->{'upnp'}->{'device'}}) {
+	push(@{$config->{'urn'}->{$device->{'urn'}}->{'device'}}, \%{$device});
+    }
+};
+
+sub syslogInit {
+    logger_init();
+    logger_prefix('upnpd');
+    logger_set_default_facility($config->{'syslog'}->{'facility'});
+};
+
+sub syslogClose {
+    logger_close();
+};
+
 # --------------- Signals ------------------
 
 sub onAlarm {
@@ -294,4 +306,9 @@ sub onAlarm {
 sub onTerminate {
     anounceDEAD;
     exit 0; # Terminate normaly
+};
+
+sub onHUP {
+# Reloading configuration
+    configParse();
 };
