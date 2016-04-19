@@ -1,11 +1,11 @@
 Name:		@PACKAGE_NAME@
 Version:	@PACKAGE_VERSION@
+Release:	1%{dist}
 Summary:	A minimalistic uPnP daemon, writen in Perl
 Group:		System/Utils
 License:	GPLv3
 URL:		@PACKAGE_URL@
 
-Requires:	perl, perl(Time::Hires)
 Buildrequires:	automake, autoconf, make
 Source0:	%name-%version.tar.gz
 
@@ -24,6 +24,8 @@ autoreconf -if
 %{__make} DESTDIR=%{buildroot} install
 
 %files
-%default(0664,root)
+%defattr(0664,root,root)
 
-%{_bindir}/*
+%attr(0775,root,root)%{_bindir}/*
+
+%config()%{_sysconfdir}/%name/*

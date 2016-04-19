@@ -5,7 +5,6 @@ AM_INIT_AUTOMAKE(foreign tar-ustar)
 SFAC_INIT_FLAGS
 AC_CONFIG_FILES([
     Makefile
-    etc/Makefile
     upnpd.spec
 ])
 AC_OUTPUT
