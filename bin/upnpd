@@ -37,10 +37,11 @@ use IO::Socket;
 use IO::Socket::Multicast;
 use Data::Dumper;
 
+my $version = '2.0.0';
 my $sysname = `uname -sr`;
 chomp $sysname;
-my $VERSION = "$sysname UPnP/1.0 VishnivetskyUPnP/0.5b";
-my $MCAST_ADDR = "239.255.255.250";
+my $VERSION = sprintf("%s UPnP/1.0 VishnivetskyUPnP/%s", $sysname, $version);
+my $MCAST_ADDR = '239.255.255.250';
 my $MCAST_PORT = 1900;
 my $MCAST_SOCK_ADDR = sprintf("%s:%d", $MCAST_ADDR, $MCAST_PORT);
 
