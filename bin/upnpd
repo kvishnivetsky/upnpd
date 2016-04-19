@@ -38,6 +38,8 @@ use IO::Socket;
 use IO::Socket::Multicast;
 use Data::Dumper;
 
+initSignals();
+
 my $version = '2.0.0';
 my $sysname = `uname -sr`;
 chomp $sysname;
@@ -53,32 +55,14 @@ my @devices = split /\n/,`ls $conf_dir/devices.d/*`;
 my $config = undef;
 configParse();
 
-my $s_anounce = IO::Socket::Multicast->new(
-    ReuseAddr => 1,
-    Blocking => 0
-    ) || die "ERROR: ".$!;
+my $s_anounce = undef;
+my $s_listen = undef;
 
-my $s_listen = IO::Socket::Multicast->new(
-    LocalPort => $MCAST_PORT,
-    ReuseAddr => 1,
-    Blocking => 0
-    ) || die "ERROR: ".$!;
-
-$s_anounce->mcast_loopback(0);
-
-$s_listen->mcast_loopback(0);
-
-# Set ougoing mcast if and addr
-$s_anounce->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
-$s_listen->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
+initTransport();
 
 my $read_set = IO::Select->new() || die "new select: ".$!;
 $read_set->add($s_listen) || die "add select: ".$!;
 
-$SIG{TERM} = \&onTerminate;
-$SIG{KILL} = \&onTerminate;
-$SIG{ALRM} = \&onAlarm;
-$SIG{HUP} = \&onHUP;
 
 my $child = fork();
 die "Unable to fork: $!" if !defined($child);
@@ -220,26 +204,20 @@ sub anounceSTATE {
     my $state = shift;
     my $notify = "";
     #Anouncing root devices
-#    printf STDERR "Anouncing root devices\n";
     for my $rootdevice(@{$config->{'upnp'}->{'rootdevice'}}) {
-#	printf STDERR "UUID=%s[%s]\n", $rootdevice->{'UUID'}, $rootdevice->{'locationURL'};
-	$notify = buildNOTIFY($rootdevice->{'UUID'}, $state, undef,$rootdevice->{'locationURL'});
+	$notify = buildNOTIFY($rootdevice->{'UUID'}, $state, 'upnp:rootdevice', $rootdevice->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
 	$notify = buildNOTIFY($rootdevice->{'UUID'}, $state, undef, $rootdevice->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
     }
 
     #Anouncing embeded devices
-#    printf STDERR "Anouncing embeded devices\n";
     for my $device(@{$config->{'upnp'}->{'device'}}) {
-#	printf STDERR "UUID=%s\n", $device->{'UUID'};
 	$notify = buildNOTIFY($device->{'UUID'}, $state, "urn:".$device->{'urn'}.":device:".$device->{'type'}.':'.$device->{'version'}, $device->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
     }
     #Anouncing services
-#    printf STDERR "Anouncing services\n";
     for my $service(@{$config->{'upnp'}->{'service'}}) {
-#	printf STDERR "UUID=%s\n", $service->{'UUID'};
 	$notify = buildNOTIFY($service->{'UUID'}, $state, "urn:".$service->{'urn'}.":service:".$service->{'type'}.':'.$service->{'version'}, $service->{'locationURL'});
 	$s_anounce->mcast_send($notify, $MCAST_SOCK_ADDR) or die "send: $!";
     }
@@ -286,6 +264,7 @@ sub configParse {
     }
 };
 
+# Syslog
 sub syslogInit {
     logger_init();
     logger_prefix('upnpd');
@@ -296,7 +275,41 @@ sub syslogClose {
     logger_close();
 };
 
+# Sockets
+sub initTransport {
+    initListeners();
+    initAnouncers();
+};
+
+sub initListeners {
+    $s_listen = IO::Socket::Multicast->new(
+	LocalPort => $MCAST_PORT,
+	ReuseAddr => 1,
+	Blocking => 0
+    ) || die "ERROR: ".$!;
+
+    $s_listen->mcast_loopback(0);
+    $s_listen->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
+};
+
+sub initAnouncers {
+    $s_anounce = IO::Socket::Multicast->new(
+	ReuseAddr => 1,
+	Blocking => 0
+    ) || die "ERROR: ".$!;
+
+    $s_anounce->mcast_loopback(0);
+    $s_anounce->mcast_add($MCAST_ADDR, $config->{'network'}->{'interface'});
+};
+
 # --------------- Signals ------------------
+
+sub initSignals {
+    $SIG{TERM} = \&onTerminate;
+    $SIG{KILL} = \&onTerminate;
+    $SIG{ALRM} = \&onAlarm;
+    $SIG{HUP} = \&onHUP;
+};
 
 sub onAlarm {
     anounceALIVE;
