@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:df="http://schemas.microsoft.com/windows/2008/09/devicefoundation" xmlns:microsoft="urn:schemas-microsoft-com:WMPDMR-1-0">
+	<specVersion>
+		<major>1</major>
+		<minor>0</minor>
+	</specVersion>
+	<device>
+		<deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
+		<friendlyName>home31</friendlyName>
+		<modelNumber>12</modelNumber>
+		<modelName>uPnPd DLNA</modelName>
+		<modelDescription>DLNA Renderer</modelDescription>
+		<manufacturer>Konstantin S. Vishnivetsky</manufacturer>
+		<manufacturerURL>http://www.vishnivetsky.ru</manufacturerURL>
+		<modelURL>https://github.com/kvishnivetsky/upnpd</modelURL>
+		<serialNumber>0</serialNumber>
+		<UDN>uuid:f9a0ed74-6456-40ea-b7cf-8247fe92c011</UDN>
+		<df:X_containerId>{9ac17d5e-0c2f-424c-9e8c-23b9bf404f9c}</df:X_containerId>
+		<df:X_deviceCategory>Multimedia.DMP</df:X_deviceCategory>
+		<microsoft:magicPacketSendSupported>1</microsoft:magicPacketSendSupported>
+		<iconList>
+			<icon>
+				<mimetype>image/png</mimetype>
+				<width>48</width>
+				<height>48</height>
+				<depth>24</depth>
+				<url>/upnphost/udhisapi.dll?content=uuid:fdbe63da-1c97-466e-bc5f-4935e7582bbf</url>
+			</icon>
+			<icon>
+				<mimetype>image/png</mimetype>
+				<width>120</width>
+				<height>120</height>
+				<depth>24</depth>
+				<url>/upnphost/udhisapi.dll?content=uuid:c5bf8722-a087-4d2e-8310-d4f43a2559aa</url>
+			</icon>
+			<icon>
+				<mimetype>image/jpeg</mimetype>
+				<width>48</width>
+				<height>48</height>
+				<depth>24</depth>
+				<url>/upnphost/udhisapi.dll?content=uuid:c52fb7b2-d4f1-4c6c-bed9-87ca70cf3e7a</url>
+			</icon>
+			<icon>
+				<mimetype>image/jpeg</mimetype>
+				<width>120</width>
+				<height>120</height>
+				<depth>24</depth>
+				<url>/upnphost/udhisapi.dll?content=uuid:d6292c4b-311f-457a-9592-ef24babf3807</url>
+			</icon>
+		</iconList>
+		<serviceList>
+			<service>
+				<serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType>
+				<serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId>
+				<controlURL>/upnphost/udhisapi.dll?control=uuid:ab652a4d-1a62-4f7f-97ec-8ad5bc4a2b32+urn:upnp-org:serviceId:RenderingControl</controlURL>
+				<eventSubURL>/upnphost/udhisapi.dll?event=uuid:ab652a4d-1a62-4f7f-97ec-8ad5bc4a2b32+urn:upnp-org:serviceId:RenderingControl</eventSubURL>
+				<SCPDURL>/upnp/dlna/RenderingControl.xml</SCPDURL>
+			</service>
+		</serviceList>
+	</device>
+</root>

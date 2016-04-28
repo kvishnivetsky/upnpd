@@ -9,6 +9,6 @@
 	<timing announce-period="30" />
     </upnp>
     <files>
-	<spool>/tmp</spool>
+	<spool>/var/spool/upnpd</spool>
     </files>
 </config>

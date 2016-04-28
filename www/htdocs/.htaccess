@@ -1,0 +1,11 @@
+Deny from all
+# Add here network access permissions like:
+# Allow from 172.16.0.0/12
+# Allow from 192.168.0.0/16
+# Allow from 10.0.0.0/8
+# Allow from 127.0.0.0/8
+#
+
+
+ErrorDocument 403 /errors/403.html
+ErrorDocument 404 /errors/404.html

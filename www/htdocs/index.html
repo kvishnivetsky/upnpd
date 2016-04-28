@@ -1,0 +1,249 @@
+<html lang="ru">
+<head>
+<title>Browse DLNA Server Content</title>
+</head>
+<body>
+<div id="devices" style="position: absolute; top: 0px; left: 0px; width: 50px; height: 550px; border: 1px solid black"></div>
+<div id="content" style="position: absolute; top: 0px; left: 50px; width: 1000px; height: 550px; border: 1px solid black"></div>
+<div id="result" style="position: absolute; top: 550px; left: 0px; width: 1050px; height: 40px; border: 1px solid black"></div>
+<script type="text/javascript" language="JavaScript1.2">
+<!--//
+// Got form http://james.padolsey.com/javascript/parsing-urls-with-the-dom/
+
+function parseURL(url) {
+    var a =  document.createElement('a');
+    a.href = url;
+    return {
+        source: url,
+        protocol: a.protocol.replace(':',''),
+        host: a.hostname,
+        port: a.port,
+        query: a.search,
+        params: (function(){
+            var ret = {},
+                seg = a.search.replace(/^\?/,'').split('&'),
+                len = seg.length, i = 0, s;
+            for (;i<len;i++) {
+                if (!seg[i]) { continue; }
+                s = seg[i].split('=');
+                ret[s[0]] = s[1];
+            }
+            return ret;
+        })(),
+        file: (a.pathname.match(/\/([^\/?#]+)$/i) || [,''])[1],
+        hash: a.hash.replace('#',''),
+        path: a.pathname.replace(/^([^\/])/,'/$1'),
+        relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [,''])[1],
+        segments: a.pathname.replace(/^\//,'').split('/')
+    };
+}
+
+function clearObject(o) {
+    if (o == null)
+	return;
+
+    while(o.firstChild != null) {
+	o.removeChild(o.firstChild);
+    }
+}
+
+function hUserData(operation, key, data, src, dst) {
+}
+
+function onDeviceSelect(e) {
+	var result = document.getElementById('result');
+	try {
+	    var services = document.getElementById('content');
+	    if(e.type == 'click') {
+		var di = e.target.getUserData('device');
+		getDeviceServices(services, di);
+	    }
+	} catch(e) {
+		result.innerHTML = 'Error(onDeviceSelect):' + e + '<br>';
+	}
+}
+
+function onContentDirectorySelect(e) {
+	var result = document.getElementById('result');
+	var content = document.getElementById('content');
+	try {
+	    var services = document.getElementById('content');
+	    if(e.type == 'click') {
+		var di = e.target.getUserData('device');
+		var controlURL = di.device_url.protocol + '://' + di.device_url.host + ((di.device_url.port+0)>0?(':' + di.device_url.port):'') + e.target.getUserData('controlURL');
+
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.open('GET', '/cgi-bin/DLNA_browse.pl?obj-id=' + e.target.getUserData('object-id') + '&start-index=0&controlURL=' + controlURL, false);
+		xmlhttp.send();
+		var directory = xmlhttp.responseXML;
+		var body = directory.getElementsByTagName('Result').item(0);
+
+		clearObject(content);
+		var parser = new DOMParser();
+		didl = parser.parseFromString(body.firstChild.data, "text/xml");
+		var containers = didl.getElementsByTagName('container');
+		for(i=0;i<containers.length;i++) {
+		    for(j=0;j<containers[i].childNodes.length;j++) {
+			if(containers[i].childNodes[j].tagName == 'dc:title') {
+			    var title = document.createElement('span');
+
+			    var icon = document.createElement('img');
+			    icon.src = '/images/folder.png';
+			    icon.title = containers[i].childNodes[j].firstChild.nodeValue;
+			    icon.setUserData('device', e.target.getUserData('device'), hUserData);
+			    icon.setUserData('controlURL', e.target.getUserData('controlURL'), hUserData);
+			    icon.setUserData('object-id', containers[i].getAttribute('id'), hUserData);
+			    icon.addEventListener('click', onContentDirectorySelect);
+
+			    title.appendChild(icon);
+			    title.appendChild(document.createTextNode(containers[i].childNodes[j].firstChild.nodeValue));
+			    title.setUserData('device', e.target.getUserData('device'), hUserData);
+			    title.setUserData('controlURL', e.target.getUserData('controlURL'), hUserData);
+			    title.setUserData('object-id', containers[i].getAttribute('id'), hUserData);
+//			    title.addEventListener('click', onContentDirectorySelect);
+			    content.appendChild(title);
+			}
+		    }
+		}
+
+		var items = didl.getElementsByTagName('item');
+		for(i=0;i<items.length;i++) {
+		    for(j=0;j<items[i].childNodes.length;j++) {
+			if(items[i].childNodes[j].tagName == 'dc:title') {
+			    var title = document.createElement('span');
+			    title.innerHTML = items[i].childNodes[j].firstChild.nodeValue;
+			    var icon = document.createElement('img');
+			    icon.src = '/images/folder.png';
+			    icon.title = items[i].childNodes[j].firstChild.nodeValue;
+			    title.appendChild(icon);
+			    title.appendChild(document.createTextNode(containers[i].childNodes[j].firstChild.nodeValue));
+			    title.setUserData('device', e.target.getUserData('device'), hUserData);
+			    title.setUserData('controlURL', e.target.getUserData('controlURL'), hUserData);
+			    title.setUserData('object-id', containers[i].getAttribute('id'), hUserData);
+//			    title.addEventListener('click', onContentDirectorySelect);
+			    content.appendChild(title);
+			}
+		    }
+		}
+	    }
+	} catch(e) {
+		result.innerHTML = 'Error(onContentDirectorySelect):' + e + '<br>';
+	}
+}
+
+function getDevices() {
+	var result = document.getElementById('result');
+	var devices = document.getElementById('devices');
+	try {
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.open('GET', '/cgi-bin/DLNA_GetDevices.pl', false);
+		xmlhttp.send();
+		var devices_info = xmlhttp.responseXML;
+
+		var deviceFiles = devices_info.getElementsByTagName('device');
+
+		clearObject(devices);
+		for(var i=0;i<deviceFiles.length;i++) {
+		    var di = getDeviceInfo(deviceFiles[i].getAttribute('file'));
+		    if (di != null)
+			getDeviceIcon(devices, di);
+		}
+	} catch(e) {
+		result.innerHTML = 'Error(getDevices):' + e + '<br>';
+	}
+	setTimeout("getDevices()", 15000);
+}
+
+function getDeviceInfo(devURI) {
+	var result = document.getElementById('result');
+	try {
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.open('GET', devURI, false);
+		xmlhttp.send();
+		var urlXML = xmlhttp.responseXML;
+		var url = parseURL(urlXML.getElementsByTagName('url').item(0).firstChild.nodeValue);
+
+		xmlhttp = new XMLHttpRequest();
+		xmlhttp.open("POST", "/cgi-bin/DLNA_GetDeviceInfo.pl", false);
+		xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		xmlhttp.send(url.source);
+		return { device_url: url, device_info: xmlhttp.responseXML};
+
+	} catch(e) {
+		result.innerHTML += 'Error(getDeviceInfo): ' + e + '<br>';
+		return null;
+	}
+}
+
+function getDeviceIcon(p, di) {
+	var result = document.getElementById('result');
+	try {
+		if (di.device_info != null) {
+		    var icons = di.device_info.getElementsByTagName('icon');
+		    for(var i=0;i<icons.length;i++) {
+			var height = icons.item(i).getElementsByTagName('height');
+			if (height.item(0).firstChild.nodeValue == 48) {
+			    var icon_url = icons.item(i).getElementsByTagName('url');
+			    var icon = document.createElement('img');
+			    icon.setAttribute('src', di.device_url.protocol + '://' + di.device_url.host + ((di.device_url.port+0)>0?(':' + di.device_url.port):'') + icon_url.item(0).firstChild.nodeValue);
+			    icon.setAttribute('title', di.device_info.getElementsByTagName('friendlyName').item(0).firstChild.nodeValue);
+			    icon.addEventListener('click', onDeviceSelect);
+			    icon.setUserData('device', di, hUserData);
+			    p.appendChild(icon);
+			    p.appendChild(document.createElement('br'));
+			    break;
+			}
+		    }
+
+		}
+	} catch(e) {
+		result.innerHTML = 'Error(getDeviceIcon): ' + e + '<br>';
+	}
+}
+
+function getDeviceServices(p, di) {
+	var result = document.getElementById('result');
+	var svcs = document.getElementById('content');
+
+	try {
+	    var device_info = di.device_info;
+	    var url = di.device_url;
+	    var services = device_info.getElementsByTagName('service');
+	    clearObject(svcs);
+	    for(var i=0;i<services.length;i++) {
+		var svc = document.createElement('img');
+		for(var s=0;s<services[i].childNodes.length;s++) {
+		    if (services[i].childNodes[s].tagName == 'serviceType') {
+			if (services[i].childNodes[s].firstChild.nodeValue != 'urn:schemas-upnp-org:service:ContentDirectory:1') {
+			    delete(svc);
+			    svc = null;
+			    break;
+			}
+			svc.src = '/images/folder.png';
+			svc.title = 'Content Directory';
+			svc.setUserData('device', di, hUserData);
+			svc.setUserData('object-id', 0, hUserData);
+			svc.addEventListener('click', onContentDirectorySelect);
+		    }
+		    if (services[i].childNodes[s].tagName == 'controlURL') {
+			svc.setUserData('controlURL', services[i].childNodes[s].firstChild.nodeValue, hUserData);
+		    }
+		    if (services[i].childNodes[s].tagName == 'serviceType') {
+			svc.innerHTML = (services[i].childNodes[s].firstChild.nodeValue);
+		    }
+		}
+		if (svc != null) {
+		    svcs.appendChild(svc);
+		    svcs.appendChild(document.createElement('br'));
+		}
+	    }
+	} catch(e) {
+		result.innerHTML = 'Error(getDeviceServices): ' + e + '<br>';
+	}
+}
+
+getDevices();
+
+//-->
+</script>
+</body>

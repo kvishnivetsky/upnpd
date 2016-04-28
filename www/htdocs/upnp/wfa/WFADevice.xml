@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+    <specVersion>
+	<major>1</major>
+	<minor>0</minor>
+    </specVersion>
+    <device>
+	<deviceType>urn:schemas-wifialliance-org:device:WFADevice:1</deviceType>
+	<friendlyName>RG-1402</friendlyName>
+	<manufacturer>Eltex</manufacturer>
+	<manufacturerURL>http://eltex.nsk.ru/</manufacturerURL>
+	<modelDescription>GPON WiFi router</modelDescription>
+	<modelName>RG</modelName>
+	<modelNumber>1402</modelNumber>
+	<modelURL>http://eltex.nsk.ru/</modelURL>
+	<serialNumber>0</serialNumber>
+	<presentationURL>http://172.16.4.1/</presentationURL>
+	<UDN>uuid:0426c5fc-31b8-4830-83c5-6c77c58dc620</UDN>
+	<serviceList>
+	    <service>
+		<serviceType>urn:schemas-wifialliance-org:service:WFAWLANConfig:1</serviceType>
+		<serviceId>urn:schemas-wifialliance-org:service:WFAWLANConfig1</serviceId>
+		<controlURL>/upnp/WFAWLANConfig1/control</controlURL>
+		<eventSubURL>/upnp/WFAWLANConfig1/events</eventSubURL>
+		<SCPDURL>/upnp/wfa/WFAWLANConfig.xml</SCPDURL>
+	    </service>
+	</serviceList>
+    </device>
+</root>
