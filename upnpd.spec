@@ -1,0 +1,31 @@
+Name:		upnpd
+Version:	2.0.0
+Release:	1%{dist}
+Summary:	A minimalistic uPnP daemon, writen in Perl
+Group:		System/Utils
+License:	GPLv3
+URL:		@PACKAGE_URL@
+
+Buildrequires:	automake, autoconf, make
+Source0:	%name-%version.tar.gz
+
+%description
+A minimalistic uPnP daemon(anouncer), written in Perl
+
+%prep
+%setup -b0 -q
+
+%build
+autoreconf -if
+%configure -C --prefix=%{_prefix}
+%{__make}
+
+%install
+%{__make} DESTDIR=%{buildroot} install
+
+%files
+%defattr(0664,root,root)
+
+%attr(0775,root,root)%{_bindir}/*
+
+%config()%{_sysconfdir}/%name/*

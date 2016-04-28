@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<services>
+    <service type="WANPPPConnection" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/igd/InternetGatewayDevice.xml" UUID="84bc7efd-ffd7-4e6d-b2f1-19051342927b"/>
+    <service type="WANIPConnection" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/igd/InternetGatewayDevice.xml" UUID="84bc7efd-ffd7-4e6d-b2f1-19051342927b"/>
+    <service type="Layer3Forwarding" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/igd/InternetGatewayDevice.xml" UUID="84bc7efd-ffd7-4e6d-b2f1-19051342927b"/>
+    <service type="WANCommonInterfaceConfig" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/igd/InternetGatewayDevice.xml" UUID="84bc7efd-ffd7-4e6d-b2f1-19051342927b"/>
+</services>

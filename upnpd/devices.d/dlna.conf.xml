@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
 <devices>
-    <device type="MediaServer" urn="schemas-upnp-org" version="1" locationURL="http://host:port/path/description.xml" UUID="uuid" />
+    <device type="MediaServer" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/dlna/MediaServer.xml" UUID="68ba99fb-1fbf-4f64-a897-6c28673400e0" />
+    <device type="MediaRenderer" urn="schemas-upnp-org" version="1" locationURL="http://172.16.255.1:80/upnp/dlna/MediaRenderer.xml" UUID="f9a0ed74-6456-40ea-b7cf-8247fe92c011" />
 </devices>

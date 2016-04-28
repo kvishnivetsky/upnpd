@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<devices>
+    <device type="WFADevice" urn="schemas-wifialliance-org" version="1" locationURL="http://172.16.255.1:80/upnp/wfa/WFADevice.xml" UUID="0426c5fc-31b8-4830-83c5-6c77c58dc620"/>
+</devices>
